@@ -2,10 +2,10 @@
 Project for UMass 426 Scalable Web Systems
 
 
-Team Name: Grant Search
+## Team Name: Grant Search
 
-Team Members:
-  Alex Murdock - Github: acmurdockUMASS
-  Daniel Kennedy - Github: DMKennedy-UMass
+## Team Members:
+  Alex Murdock - Github: acmurdockUMASS  
+  Daniel Kennedy - Github: DMKennedy-UMass  
 
 Domain:
