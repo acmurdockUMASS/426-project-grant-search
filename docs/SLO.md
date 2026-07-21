@@ -6,7 +6,7 @@ For the same reason we should be aiming for at-least-once with some exceptions. 
   *  Reliability: The Search must be sucessful at the 95th percentile, to ensure the results are return at-least-once should be considered. <br>
 ## user-profile-service: <br>
   *  Latency: Changes to the profile must occur within 0.5 seconds at the 95th percentile. <br>
-  *  Reliability: Changes to the profile must be sucessful at the 99th percentile and should definilty be at-least-once. <br>
+  *  Reliability: Changes to the profile must be sucessful at the 99th percentile and should definitly be at-least-once. <br>
 ## grant-tracking-service: <br>
   *  Latency: The Notification must go out with 60 seconds at the 95th percentile as the notification need not be imediate. <br>
   *  Reliability: The Notification must be sucessful at the 99th percentile and must occur only once as duplicate notifiactions msut be avoided. <br>
