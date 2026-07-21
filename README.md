@@ -14,6 +14,6 @@ Project for UMass 426 Scalable Web Systems
   Ensuring nonprofit companies do not have a lack of funds is particularly important as it could either disrupt their services or in the worse case lead to the legal dissolution of the nonprofit. In this way the system can help ensure these non profits are able to continue to provide their services to their communities.
 
 ## Links:
-*[PROJECT Description](docs/PROJECT.md)
-*[SERVICES Documentation](docs/SERVICES.md)
-*[SLO Documentaiton](docs/SLO.md)
+* [PROJECT Description](docs/PROJECT.md)
+* [SERVICES Documentation](docs/SERVICES.md)
+* [SLO Documentaiton](docs/SLO.md)
