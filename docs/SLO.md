@@ -2,7 +2,7 @@ Overall because of the larger time scale that grants are worked around we can pr
 For the same reason we should be aiming for at-least-once with some exceptions. <br>
 ---
 ## grant-search-service: <br>
-  *  Latency: The search must return top results within 0.5 seconds at the 95th percentile to prevent the user from waiting too long. <br>
+  *  Latency: The search must return top results within 0.5 seconds at least 95% of valid profile update requests must succeed, to prevent the user from waiting too long. <br>
   *  Reliability: The Search must be successful at the 95th percentile, to ensure the results are return at-least-once should be considered. <br>
 ## user-profile-service: <br>
   *  Latency: Changes to the profile must occur within 0.5 seconds at the 95th percentile. <br>
