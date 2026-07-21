@@ -16,4 +16,14 @@ For the same reason we should be aiming for at-least-once with some exceptions. 
 
  * Reliability: At least 99% of valid eligibility check requests must succeed over a rolling 30-day period. Requests may use at-least-once delivery, but an idempotency key must stop retires from overburdening the system with repeat analyses.
 
- 
+ ## grant-scraper-service:
+
+* Latency: POST /ingestion/events must acknowledge an incoming grant record within 750 milliseconds at the 95th percentile, preventing backlogs that leaves users with outdated opportunities.<br>
+
+* Reliability: At least 99.5% of valid ingestion events must be stored successfully. At-least-once delivery is ok but records must be deduplicated using the source grant ID and version so retries don't duplicate entries. <br>
+
+## application-workflow-service:
+
+* Latency: PATCH /applications/{applicationId}/tasks/{taskId} must complete within 400ms at the 95th percentile, so collaborators get updates and do not work from stale application information.  <br>
+
+* Reliability:  At least 99.9% of valid application updates must succeed. Retried updates must be idempotent so at-least-once delivery cannot create duplicate tasks or repeat a status transition. <br>
