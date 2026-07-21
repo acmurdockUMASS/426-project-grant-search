@@ -5,7 +5,7 @@
 ## grant-tracking-service:
 * Tracks grant milestones such as application opening, submission deadline ect and notifies users when that milestone is upcoming.
 ## ## eligibility-analysis-service:
-* Evaluates whether an organization appears eligibale for a grant based on the organization's information and the grant's requirements. <br>
+* Evaluates whether an organization appears eligible for a grant based on the organization's information and the grant's requirements. <br>
 
 ## grant-scraper-service:
 
@@ -13,4 +13,4 @@
 
 ## application-workflow-service:
 
-* Manages applications, checklists, required doccuments, completion percent, and application status changes. <br>
+* Manages applications, checklists, required documents, completion percent, and application status changes. <br>
