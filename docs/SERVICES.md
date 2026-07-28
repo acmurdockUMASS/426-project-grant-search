@@ -21,3 +21,8 @@
 ## application-workflow-service:
 
 - Manages applications, checklists, required documents, completion percent, and application status changes. <br>
+
+## Diagram: Likely Subject To Significant Changes Moving Forward
++--------+         +----------------+         +------------------------+         +---------------------+
+| Client |  ---->  | Search-service |  ---->  | eligibility-ambassador |  ---->  | eligibility-service |
++--------+         +----------------+         +------------------------+         +---------------------+
