@@ -1,7 +1,7 @@
 import express from "express";
 
 const PORT = process.env.PORT || 3000;
-//const DATA_DIR = process.env.DATA_DIR || "./data";
+const DATA_DIR = process.env.DATA_DIR || "./data";
 
 //const filepath = path.join(DATA_DIR, "grants.json");
 
@@ -51,7 +51,7 @@ const qHelper = (qIn) => {
 
 // GET /grants
 app.get("/grants", async (req, res) => {
-    await delay (200);
+    await delay (450);
     const {
         grantStatus,
         amountRangeLow = 0,

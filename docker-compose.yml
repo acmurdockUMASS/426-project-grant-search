@@ -1,9 +1,10 @@
 services:
   grant-search:
-    build: .
+    build: ./grant-search-service
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
+      - PORT=3000
     volumes:
       - grant-data:/data
 
