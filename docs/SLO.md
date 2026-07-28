@@ -5,7 +5,7 @@ For the same reason we should be aiming for at-least-once with some exceptions. 
 
 ## grant-search-service:
 
-- Latency: `GET /grants/search` must return the first page of matching grants within 500 milliseconds at the 95th percentile, so nonprofit staff can evaluate funding opportunities without disruptive waiting.
+- Latency: `GET /grants` must return the grants matching the query within 500 milliseconds at the 95th percentile, so nonprofit staff can evaluate funding opportunities without disruptive waiting.
 
 - Reliability: At least 99.5% of valid search requests must succeed over a rolling 30-day period. Search requests use an idempotent read operation, so at-least-once delivery and client retries cannot create duplicate grants or modify stored data.<br>
 
