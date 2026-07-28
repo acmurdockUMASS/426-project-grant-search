@@ -1,0 +1,14 @@
+{
+  "name": "eligibility-analysis-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A simulated grant eligibility service for Sprint 2.",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

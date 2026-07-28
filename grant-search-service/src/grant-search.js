@@ -35,7 +35,7 @@ interests: ["environment"],
 description: "Grant Opportunities to help clean up areas underneath the Northeast Wilderness Trust."},
 ];
 
-const delay = (ms) => new Promise((resolve)=>setTimeout(resolve,ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Query Helper To Check for Query Parameters and ensure variables are arrays
 const qHelper = (qIn) => {
@@ -51,7 +51,7 @@ const qHelper = (qIn) => {
 
 // GET /grants
 app.get("/grants", async (req, res) => {
-    await delay (450);
+    await delay(450);
     const {
         grantStatus,
         amountRangeLow = 0,
