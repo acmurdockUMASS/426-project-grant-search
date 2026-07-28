@@ -7,6 +7,23 @@ services:
       - PORT=3000
     volumes:
       - grant-data:/data
+  eligibility-analysis-service:
+    build: ./eligibility-service
+    ports:
+      - "3001:3000"
+    environment:
+      PORT: 3000
+  eligibility-ambassador:
+    build: ./eligibility-ambassador
+    ports:
+      - "3002:3000"
+    environment:
+      PORT: 3000
+      UPSTREAM_URL: http://eligibility-analysis-service:3000
+      UPSTREAM_TIMEOUT_MS: 1500
+    depends_on:
+      eligibility-analysis-service:
+        condition: service_healthy
 
 volumes:
   grant-data:
