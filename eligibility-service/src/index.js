@@ -1,6 +1,7 @@
-import express, { response } from "express";
+import express from "express";
 import { randomUUID } from "node:crypto";
 
+const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const MIN_LATENCY_MS = process.env.MIN_LATENCY_MS || 350;
@@ -81,7 +82,7 @@ app.post("/eligibility-checks", async (request, response) => {
   const organizationMissionAreas = normList(organization.missionAreas);
   const grantFocusAreas = normList(grant.focusAreas);
 
-  const matchingMissionAreas = organizationMissionAreas.filter((missionAreas) =>
+  const matchingMissionAreas = organizationMissionAreas.filter((missionArea) =>
     grantFocusAreas.includes(missionArea),
   );
   const checks = [
@@ -127,9 +128,9 @@ app.post("/eligibility-checks", async (request, response) => {
 
   const passedChecks = checks.filter((check) => check.passed).length;
   const eligible = passedChecks === checks.length;
-  const matchScore = Math.round((passedChecks / check.length) * 100);
+  const matchScore = Math.round((passedChecks / checks.length) * 100);
 
-  const simulatedLatencyMs = getRandomLatency();
+  const simulatedLatencyMs = getLatency();
   await wait(simulatedLatencyMs);
   const result = {
     eligibilityCheckId: randomUUID(),
@@ -149,19 +150,19 @@ app.post("/eligibility-checks", async (request, response) => {
       ? "the organization appears eligible based on simulated requirements"
       : "The organization did not pass every requirement",
   };
-  console.log(`${result.eligiblityCheckId} in ${simulatedLatencyMs} ms`);
+  console.log(`${result.eligibilityCheckId} in ${simulatedLatencyMs} ms`);
   response
-    .set("x-sumulated-latency-ms", String(simulatedLatencyMs))
+    .set("x-simulated-latency-ms", String(simulatedLatencyMs))
     .json(result);
 });
 
 app.use((req, res) => {
-  response.status(404).json({
+  res.status(404).json({
     error: "Not found",
-    message: "Use Get /health or POST /eligiblity-checks.",
+    message: "Use GET /health or POST /eligibility-checks.",
   });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`eligbility service is listening on port ${PORT}`);
+  console.log(`eligibility service is listening on port ${PORT}`);
 });
