@@ -102,7 +102,7 @@ export const grantSearchWorkload = () => {
         path = hotQueries[queryIndex];
     }
     else{
-        const uniqueMinimumAmount = 1000 + _VU * 1000 + __ITER; 
+        const uniqueMinimumAmount = 1000 + __VU * 1000 + __ITER; 
         path = `/grants?amountRangeLow=${uniqueMinimumAmount}`;
     }
 
