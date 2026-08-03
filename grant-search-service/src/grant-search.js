@@ -1,4 +1,4 @@
-import express from "express";
+import express, { response } from "express";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
@@ -90,7 +90,15 @@ app.get("/grants", async (req, res) => {
                     body: JSON.stringify(req.body),
                 },
             );
-            //Need to add response body return res.status, then catch err
-        }//also add 502 err handling. Will handle early tomorrow. 
+                const responseBody = await ambassadorResponse.json();
+
+                return res.status(ambassadorResponse.status).json(responseBody);
+            }
+        catch(error){
+            console.error("Can't reach Eligibility Ambassador", error);
+
+            return res.status(502).json({error: "Eligibility Ambassador Unavailable",
+            });
+        }        
     });
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
