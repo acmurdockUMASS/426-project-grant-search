@@ -1,4 +1,6 @@
-import express, { response } from "express";
+import express, { json } from "express";
+import crypto from "node:crypto";
+import { createClient} from "redis";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
@@ -38,11 +40,17 @@ description: "Grant Opportunities to help clean up areas underneath the Northeas
 
 const delay = (ms) => new Promise((resolve)=>setTimeout(resolve,ms));
 
+
+
+const CACHE = process.env.REDIS_URL || "redis://localhost:6379" ;
+const client = createClient({ url: `redis://${CACHE}` });
+await client.connect();
+
 // Query Helper To Check for Query Parameters and ensure variables are arrays
 const qHelper = (qIn) => {
     if(!qIn){return []} // No input is an empty array
     if(Array.isArray(qIn)){
-        return qIn;
+        return qIn.toSorted();
     }else{
         let out = [];
         out.push(qIn);
@@ -59,7 +67,6 @@ app.get("/health", (req, res) => {
 });
 // GET /grants
 app.get("/grants", async (req, res) => {
-    await delay (450);
     const {
         grantStatus,
         amountRangeLow = 0,
@@ -71,20 +78,38 @@ app.get("/grants", async (req, res) => {
     let orgRegion = qHelper(orgQueryRegion);
     let orgReq = qHelper(orgQueryReq);
     let orgInterests = qHelper(orgQueryInterests);
-    const matches = grants.filter((grant) => {
-        if(grantStatus && grant.deadlineStatus !== grantStatus){return false;}
-        if(Number(amountRangeLow) > grant.fundingAmount){return false;}
-        if(Number(amountRangeHigh) < grant.fundingAmount){return false;}
-        if(orgRegion.length > 0 && 
-        !orgRegion.some(region => grant.regions.includes(region))){return false;}
-        if(orgReq.length > 0 && 
-        !orgReq.some(req => grant.requirements.includes(req))){return false;}
-        if(orgInterests.length > 0 && 
-        !orgInterests.some(interest => grant.interests.includes(interest))){return false;}
-        return true;
+
+    // Check Cache
+    const key = JSON.stringify({gS: grantStatus || null, aRL: amountRangeLow, aRH: amountRangeHigh,
+        oQRG: orgQueryRegion, oQR: orgQueryReq, oQI: orgQueryInterests    
     });
 
-    res.json({ count: matches.length, matches: matches });
+    const value = await client.get(key);
+    if(value != null){
+        console.log("Cache Hit");
+        return res.json(JSON.parse(value));
+    }else{
+        console.log("Cache Miss");
+        //Cache Miss Fetch Data
+        await delay (450);
+        const matches = grants.filter((grant) => {
+            if(grantStatus && grant.deadlineStatus !== grantStatus){return false;}
+            if(Number(amountRangeLow) > grant.fundingAmount){return false;}
+            if(Number(amountRangeHigh) < grant.fundingAmount){return false;}
+            if(orgRegion.length > 0 && 
+            !orgRegion.some(region => grant.regions.includes(region))){return false;}
+            if(orgReq.length > 0 && 
+            !orgReq.some(req => grant.requirements.includes(req))){return false;}
+            if(orgInterests.length > 0 && 
+            !orgInterests.some(interest => grant.interests.includes(interest))){return false;}
+            return true;
+        });
+
+        //Add to cache
+        await client.set(key, JSON.stringify({ count: matches.length, source: "cache", matches: matches }), {EX: 3600} );
+
+        return res.json({ count: matches.length, source: "database", matches: matches });
+    }
 });
 
     app.post("/eligibility-checks", async (req, res) => {
