@@ -1,5 +1,5 @@
-:8080{
-    reverse_proxy grant-search-1:3000 grant-search-2:3000{
+:8080 {
+    reverse_proxy grant-search-1:3000 grant-search-2:3000 {
         lb_policy round_robin
 
         health_uri /health
