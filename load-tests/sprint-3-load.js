@@ -145,7 +145,7 @@ export const grantSearchWorkload = () => {
 };
 
 export const eligibilityWorkload = () => {
-    const response = http.post(`{BASE_URL}/eligibility-checks`,
+    const response = http.post(`${BASE_URL}/eligibility-checks`,
         JSON.stringify(eligibilityPayload), 
         {
             headers: {
