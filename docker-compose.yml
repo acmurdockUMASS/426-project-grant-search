@@ -4,11 +4,14 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - PORT=3000
-      - REDIS_URL=redis:6379
+      - PORT: 3000
+      - ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+      - REDIS_URL=redis:6379      
     volumes:
       - grant-data:/data
-    depends_on:
+    depends_on: 
+      - eligibility-ambassador:
+        - condition: service_healthy
       - redis
   eligibility-service:
     build: ./eligibility-service

@@ -4,7 +4,7 @@ import { createClient} from "redis";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
-
+const ELIGIBILITY_AMBASSADOR_URL = process.env.ELIGIBILITY_AMBASSADOR_URL || "http://eligiblity-ambassador:3000";
 //const filepath = path.join(DATA_DIR, "grants.json");
 
 const app = express();
@@ -104,4 +104,26 @@ app.get("/grants", async (req, res) => {
     }
 });
 
+    app.post("/eligibility-checks", async (req, res) => {
+        try {
+            const ambassadorResponse = await fetch(
+                `${ELIGIBILITY_AMBASSADOR_URL}/eligibility-checks`,{
+                    method: "POST",
+                    headers: {
+                        "content-type":  "application/json", 
+                    },
+                    body: JSON.stringify(req.body),
+                },
+            );
+                const responseBody = await ambassadorResponse.json();
+
+                return res.status(ambassadorResponse.status).json(responseBody);
+            }
+        catch(error){
+            console.error("Can't reach Eligibility Ambassador", error);
+
+            return res.status(502).json({error: "Eligibility Ambassador Unavailable",
+            });
+        }        
+    });
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
