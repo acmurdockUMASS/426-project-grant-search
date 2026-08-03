@@ -40,10 +40,7 @@ description: "Grant Opportunities to help clean up areas underneath the Northeas
 
 const delay = (ms) => new Promise((resolve)=>setTimeout(resolve,ms));
 
-
-
-const CACHE = process.env.REDIS_URL || "redis://localhost:6379" ;
-const client = createClient({ url: `redis://${CACHE}` });
+const client = createClient({ url: process.env.REDIS_URL});
 await client.connect();
 
 // Query Helper To Check for Query Parameters and ensure variables are arrays
