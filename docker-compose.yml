@@ -1,18 +1,11 @@
 services:
-  grant-search:
-    build: ./grant-search-service
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT: 3000
-      - ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
-      - REDIS_URL=redis:6379      
-    volumes:
-      - grant-data:/data
-    depends_on: 
-      - eligibility-ambassador:
-        - condition: service_healthy
-      - redis
+  redis: 
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   eligibility-service:
     build: ./eligibility-service
     ports:
@@ -30,9 +23,47 @@ services:
     depends_on:
       eligibility-service:
         condition: service_healthy
-  redis:
-    image: redis:7
-
+  grant-search-1:
+    build: ./grant-search-service
+    environment:
+      PORT: 3000
+      INSTANCE_ID: grant-search-1
+      REDIS_URL: redis://redis:6379
+      CACHE_TTL_SECONDS: 60
+      ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+    volumes:
+      - grant-data:/data
+    depends_on: 
+      redis: 
+        condition: service_healthy
+      eligibility-ambassador:
+        condition: service_healthy
+  grant-search-2:
+    build: ./grant-search-service
+    environment:
+      PORT: 3000
+      INSTANCE_ID: grant-search-2
+      REDIS_URL: redis://redis:6379
+      CACHE_TTL_SECONDS: 60
+      ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+    volumes:
+      - grant-data:/data
+    depends_on: 
+      redis: 
+        condition: service_healthy
+      eligibility-ambassador:
+        condition: service_healthy        
+  caddy: 
+    image: caddy:2-alpine
+    ports: 
+      - "3000:8080"
+    volumes: 
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on: 
+      grant-search-1:
+        condition: service_started
+      grant-search-2:
+        condition: service_started
 
 volumes:
   grant-data:

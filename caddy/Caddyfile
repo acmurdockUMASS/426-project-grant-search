@@ -1,0 +1,17 @@
+:8080{
+    reverse_proxy grant-search-1:3000 grant-search-2:3000{
+        lb_policy round_robin
+
+        health_uri /health
+        health_interval 5s
+        health_timeout 2s
+
+        lb_try_duration 5s 
+        lb_try_interval 250ms
+
+        fail_duration 10s
+        max_fails 1
+
+        header_down X-Served-By {upstream_hostport}
+    }
+}

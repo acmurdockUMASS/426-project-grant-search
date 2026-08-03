@@ -4,7 +4,8 @@ import { createClient} from "redis";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
-const ELIGIBILITY_AMBASSADOR_URL = process.env.ELIGIBILITY_AMBASSADOR_URL || "http://eligiblity-ambassador:3000";
+const INSTANCE_ID = process.env.INSTANCE_ID || "grant-search";
+const ELIGIBILITY_AMBASSADOR_URL = process.env.ELIGIBILITY_AMBASSADOR_URL || "http://eligibility-ambassador:3000";
 //const filepath = path.join(DATA_DIR, "grants.json");
 
 const app = express();
@@ -56,7 +57,14 @@ const qHelper = (qIn) => {
         return out;
     }
 }
-
+//GET /health
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "grant-search-service",
+    instanceId: INSTANCE_ID,
+  });
+});
 // GET /grants
 app.get("/grants", async (req, res) => {
     const {
@@ -115,15 +123,29 @@ app.get("/grants", async (req, res) => {
                     body: JSON.stringify(req.body),
                 },
             );
-                const responseBody = await ambassadorResponse.json();
+    const upstreamContentType =
+      ambassadorResponse.headers.get("content-type") ||
+      "application/json";
 
-                return res.status(ambassadorResponse.status).json(responseBody);
-            }
-        catch(error){
-            console.error("Can't reach Eligibility Ambassador", error);
+    const simulatedLatency =
+      ambassadorResponse.headers.get("x-simulated-latency-ms");
 
-            return res.status(502).json({error: "Eligibility Ambassador Unavailable",
-            });
-        }        
+    const upstreamBody = await ambassadorResponse.text();
+
+    if (simulatedLatency) {
+      res.set("x-simulated-latency-ms", simulatedLatency);
+    }
+
+    res.status(ambassadorResponse.status);
+    res.set("content-type", upstreamContentType);
+
+    return res.send(upstreamBody);
+  } catch (error) {
+    console.error("Cannot reach Eligibility Ambassador", error);
+
+    return res.status(502).json({
+      error: "Eligibility Ambassador unavailable",
     });
+  }
+});
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
