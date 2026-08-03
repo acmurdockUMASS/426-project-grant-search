@@ -4,7 +4,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - PORT=3000
+      PORT: 3000
+      ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+    depends_on: 
+      eligibility-ambassador:
+        condition: service_healthy
     volumes:
       - grant-data:/data
   eligibility-service:
