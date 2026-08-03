@@ -40,10 +40,7 @@ description: "Grant Opportunities to help clean up areas underneath the Northeas
 
 const delay = (ms) => new Promise((resolve)=>setTimeout(resolve,ms));
 
-
-
-const CACHE = process.env.REDIS_URL || "redis://localhost:6379" ;
-const client = createClient({ url: `redis://${CACHE}` });
+const client = createClient({ url: process.env.REDIS_URL});
 await client.connect();
 
 // Query Helper To Check for Query Parameters and ensure variables are arrays
@@ -86,9 +83,11 @@ app.get("/grants", async (req, res) => {
 
     const value = await client.get(key);
     if(value != null){
+        res.setHeader('X-Cache', 'HIT');
         console.log("Cache Hit");
         return res.json(JSON.parse(value));
     }else{
+        res.setHeader('X-Cache', 'MISS');
         console.log("Cache Miss");
         //Cache Miss Fetch Data
         await delay (450);
