@@ -14,7 +14,7 @@ Test Paramaters: 45 Seconds, 10 VU
 ##### Request Rate: http_reqs: 1398 requests at 30.793197/s   
 ##### Error Rate: http_req_failed: 0.00%  
 
-<&emsp> According to our docs/SLO.md our targets for the grant-search service were as followed,
+  According to our docs/SLO.md our targets for the grant-search service were as followed,
 latency for p(95) at 500 milliseconds or less and for reliability 99.5% of request must succeed,
 For both of these metrics we did pass both of them p(95) = 458.71 and a 0.00% error rate.
 The other most significant statist to make note of is the cache hit rate of 74.60%.
