@@ -23,6 +23,20 @@
 - Manages applications, checklists, required documents, completion percent, and application status changes. <br>
 
 ## Diagram: Likely Subject To Significant Changes Moving Forward
+```mermaid
+graph TD;
+A[Client] --> B[Caddy Load Balancer] 
+B --> C[Grant Search Replica 1 grant-search-1:3000]
+B --> D[Grant Search Replica 2 grant-search-2:3000]
+C <--> G[Data]
+C <--> F[Shared Redis Cache redis:6379 ]
+D <--> G
+D <--> F
+C --> H[Eligibility Ambassador]
+D --> H
+H --> I[Eligibility Service]
+```
+
 ```text
 +----------+       +------------------+
 |  Client  | ----> |      Caddy       |
