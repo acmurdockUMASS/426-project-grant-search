@@ -23,6 +23,32 @@
 - Manages applications, checklists, required documents, completion percent, and application status changes. <br>
 
 ## Diagram: Likely Subject To Significant Changes Moving Forward
-+--------+         +----------------+         +------------------------+         +---------------------+ <br>
-| Client |  ---->  | Search-service |  ---->  | eligibility-ambassador |  ---->  | eligibility-service | <br>
-+--------+         +----------------+         +------------------------+         +---------------------+ <br>
+```text
++----------+       +------------------+
+|  Client  | ----> |      Caddy       |
++----------+       |  Load Balancer   |
+                   +--------+---------+
+                            |
+                 +----------+----------+
+                 |                     |
+                 v                     v
+      +----------------------+   +----------------------+
+      | Grant Search         |   | Grant Search         |
+      | Replica 1            |   | Replica 2            |
+      | grant-search-1:3000  |   | grant-search-2:3000  |
+      +----------+-----------+   +-----------+----------+
+                 |                           |
+                 +-------------+-------------+
+                               |
+                 +-------------+-------------+
+                 |                           |
+                 v                           v
+        +----------------+       +------------------------+
+        | Shared Redis   |       | Eligibility Ambassador|
+        | Cache          |       +-----------+------------+
+        | redis:6379     |                   |
+        +----------------+                   v
+                                +------------------------+
+                                | Eligibility Service    |
+                                +------------------------+
+```
