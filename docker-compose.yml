@@ -6,6 +6,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
   eligibility-service:
     build: ./eligibility-service
     healthcheck:
@@ -49,11 +57,15 @@ services:
       REDIS_URL: redis://redis:6379
       CACHE_TTL_SECONDS: 60
       ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      GRANT_ALERT_QUEUE: grant-alert-jobs
       FAULT: 0
     volumes:
       - grant-data:/data
     depends_on: 
       redis: 
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       eligibility-ambassador:
         condition: service_healthy
@@ -71,14 +83,43 @@ services:
       REDIS_URL: redis://redis:6379
       CACHE_TTL_SECONDS: 60
       ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      GRANT_ALERT_QUEUE: grant-alert-jobs
       FAULT: 0
     volumes:
       - grant-data:/data
     depends_on: 
       redis: 
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
       eligibility-ambassador:
-        condition: service_healthy        
+        condition: service_healthy
+  grant-alert-worker:
+    build: ./grant-alert-worker
+    ports:
+      - "3003:3000"
+    environment:
+      PORT: 3000
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      GRANT_ALERT_QUEUE: grant-alert-jobs
+      PROCESSING_DELAY_MS: 250
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+        
   caddy: 
     image: caddy:2-alpine
     ports: 
