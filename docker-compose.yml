@@ -49,6 +49,7 @@ services:
       REDIS_URL: redis://redis:6379
       CACHE_TTL_SECONDS: 60
       ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+      FAULT: 0
     volumes:
       - grant-data:/data
     depends_on: 
@@ -70,6 +71,7 @@ services:
       REDIS_URL: redis://redis:6379
       CACHE_TTL_SECONDS: 60
       ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
+      FAULT: 0
     volumes:
       - grant-data:/data
     depends_on: 

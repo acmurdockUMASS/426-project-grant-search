@@ -6,6 +6,7 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const INSTANCE_ID = process.env.INSTANCE_ID || "grant-search";
 const ELIGIBILITY_AMBASSADOR_URL = process.env.ELIGIBILITY_AMBASSADOR_URL || "http://eligibility-ambassador:3000";
+const FAULT = process.env.FAULT || 0;
 //const filepath = path.join(DATA_DIR, "grants.json");
 
 const app = express();
@@ -60,10 +61,17 @@ app.get("/health", (req, res) => {
     status: "ok",
     service: "grant-search-service",
     instanceId: INSTANCE_ID,
+    faultSwitch: FAULT
   });
 });
 // GET /grants
 app.get("/grants", async (req, res) => {
+    if(FAULT == 1){
+        console.error("Fault on /grants", error);
+        return res.status(500).json({
+        error: "Fault Active.",
+        });
+        }
     const {
         grantStatus,
         amountRangeLow = 0,
@@ -112,6 +120,12 @@ app.get("/grants", async (req, res) => {
 });
 
     app.post("/eligibility-checks", async (req, res) => {
+        if(FAULT == 1){
+        console.error("Fault on /eligibility-checks", error);
+        return res.status(500).json({
+        error: "Fault Active.",
+        });
+        }
         try {
             const ambassadorResponse = await fetch(
                 `${ELIGIBILITY_AMBASSADOR_URL}/eligibility-checks`,{
