@@ -32,7 +32,10 @@ C <--> G[Data]
 C <--> F[Shared Redis Cache redis:6379 ]
 D <--> G
 D <--> F
+C --> J[RabbitMQ]
+D --> J
 C --> H[Eligibility Ambassador]
 D --> H
 H --> I[Eligibility Service]
+J --> K[Grant Alert Worker]
 ```
