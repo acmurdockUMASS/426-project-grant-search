@@ -2,6 +2,7 @@ import express, { json } from "express";
 import crypto from "node:crypto";
 import amqp from "amqplib";
 import { createClient} from "redis";
+import client from "prom-client";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
@@ -10,7 +11,19 @@ const ELIGIBILITY_AMBASSADOR_URL = process.env.ELIGIBILITY_AMBASSADOR_URL || "ht
 const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://rabbitmq:5672";
 const GRANT_ALERT_QUEUE = process.env.GRANT_ALERT_QUEUE || "grant-alert-jobs";
 const FAULT = process.env.FAULT || 0;
-//const filepath = path.join(DATA_DIR, "grants.json");
+
+const httpRequestsTotal = new client.Counter({
+  name: "http_requests_total",
+  help: "Total number of HTTP requests received",
+  labelNames: ["method", "route", "status_code"],
+});
+
+const httpRequestDuration = new client.Histogram({
+  name: "http_request_duration_seconds",
+  help: "HTTP request duration in seconds",
+  labelNames: ["method", "route", "status_code"],
+  buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+});
 
 const app = express();
 app.use(express.json());
@@ -347,4 +360,10 @@ app.post("/grant-alerts", async (req, res) => {
     });
   }
 });
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", client.register.contentType);
+  res.end(await client.register.metrics());
+});
+
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));

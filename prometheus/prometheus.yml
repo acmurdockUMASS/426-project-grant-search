@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "grant-search-1"
+    static_configs:
+      - targets: ["grant-search-1:3000"]
