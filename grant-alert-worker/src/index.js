@@ -1,5 +1,6 @@
 import express from "express";
 import amqp from "amqplib";
+import promClient from "prom-client";
 
 const PORT = process.env.PORT || 3000;
 const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://rabbitmq:5672";
@@ -12,16 +13,73 @@ let rabbitReady = false;
 
 const delay = (ms) => new Promise((resolve)=>setTimeout(resolve,ms));
 
-function writeConsumerLog(event, details = {}) {
+const metricsRegistry = new promClient.Registry();
+
+const httpRequestsTotal = new promClient.Counter({
+  name: "http_requests_total",
+  help: "Total number of HTTP requests received",
+  labelNames: ["method", "route", "status_code"],
+  registers: [metricsRegistry],
+});
+
+const httpRequestDuration = new promClient.Histogram({
+  name: "http_request_duration_milliseconds",
+  help: "HTTP request duration in milliseconds",
+  labelNames: ["method", "route", "status_code"],
+  buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000],
+  registers: [metricsRegistry],
+});
+
+function writeConsumerLog(event, details = {}, level = "info") {
   console.log(
     JSON.stringify({
       timestamp: new Date().toISOString(),
+      level,
+      message: event.replaceAll("_", " "),
+      service: "grant-alert-worker",
       component: "consumer",
       event,
       ...details,
     }),
   );
 }
+
+app.use((req, res, next) => {
+  const startedAt = performance.now();
+
+  res.on("finish", () => {
+    const responseTimeMs = Number((performance.now() - startedAt).toFixed(2));
+    const route = req.route?.path || req.path;
+    const statusCode = String(res.statusCode);
+
+    httpRequestsTotal.inc({
+      method: req.method,
+      route,
+      status_code: statusCode,
+    });
+    httpRequestDuration.observe(
+      {
+        method: req.method,
+        route,
+        status_code: statusCode,
+      },
+      responseTimeMs,
+    );
+
+    writeConsumerLog(
+      "http_request_completed",
+      {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        responseTimeMs,
+      },
+      res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info",
+    );
+  });
+
+  next();
+});
 
 async function processGrantAlert(message, channel) {
   if (!message) {
@@ -36,7 +94,7 @@ async function processGrantAlert(message, channel) {
     writeConsumerLog("rejected", {
       reason: "invalid_json",
       message: error.message,
-    });
+    }, "warn");
 
     channel.nack(message, false, false);
     return;
@@ -67,14 +125,14 @@ async function processGrantAlert(message, channel) {
     writeConsumerLog("processing_failed", {
       ...jobDetails,
       message: error.message,
-    });
+    }, "error");
 
     try {
       channel.nack(message, false, true);
     } catch {
       writeConsumerLog("requeue_failed", {
         jobId: job.jobId,
-      });
+      }, "error");
     }
   }
 }
@@ -101,7 +159,7 @@ async function startRabbitConsumer() {
     connection.on("error", (error) => {
       writeConsumerLog("rabbitmq_error", {
         message: error.message,
-      });
+      }, "error");
     });
 
     connection.on("close", () => {
@@ -119,12 +177,17 @@ async function startRabbitConsumer() {
 
     writeConsumerLog("rabbitmq_connection_failed", {
       message: error.message,
-    });
+    }, "error");
 
     await connection?.close().catch(() => {});
     setTimeout(() => void startRabbitConsumer(), 2000);
   }
 }
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", metricsRegistry.contentType);
+  res.end(await metricsRegistry.metrics());
+});
 
 //GET /health
 app.get("/health", (req, res) => {
@@ -140,7 +203,7 @@ app.get("/health", (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Grant Alert Worker health server is listening on port ${PORT}`);
+  writeConsumerLog("started", { port: Number(PORT) });
 });
 
 void startRabbitConsumer();
