@@ -8,7 +8,9 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const INSTANCE_ID = process.env.INSTANCE_ID || "grant-search";
 const ELIGIBILITY_AMBASSADOR_URL = process.env.ELIGIBILITY_AMBASSADOR_URL || "http://eligibility-ambassador:3000";
-const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://rabbitmq:5672";
+const RABBITMQ_URL =
+  process.env.RABBITMQ_URL ||
+  "amqp://grantsearch:grantsearch-dev@rabbitmq:5672";
 const GRANT_ALERT_QUEUE = process.env.GRANT_ALERT_QUEUE || "grant-alert-jobs";
 const FAULT = process.env.FAULT || 0;
 
@@ -114,6 +116,11 @@ const delay = (ms) => new Promise((resolve)=>setTimeout(resolve,ms));
 
 
 const redisClient = createClient({ url: process.env.REDIS_URL});
+redisClient.on("error", (error) => {
+  writeLog("error", "Redis client error", {
+    error: error.message,
+  });
+});
 await redisClient.connect();
 
 
@@ -237,6 +244,10 @@ function queryValueAsArray(value) {
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
+
+function isFaultActive() {
+  return String(FAULT) === "1";
+}
 // Query Helper To Check for Query Parameters and ensure variables are arrays
 const qHelper = (qIn) => {
     if(!qIn){return []} // No input is an empty array
@@ -250,8 +261,10 @@ const qHelper = (qIn) => {
 }
 //GET /health
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
+  const faultActive = isFaultActive();
+
+  res.status(faultActive ? 503 : 200).json({
+    status: faultActive ? "fault" : "ok",
     service: "grant-search-service",
     instanceId: INSTANCE_ID,
     rabbitmq: rabbitChannel ? "connected" : "connecting",
@@ -260,7 +273,7 @@ app.get("/health", (req, res) => {
 });
 // GET /grants
 app.get("/grants", async (req, res) => {
-    if(String(FAULT) === "1"){
+    if(isFaultActive()){
         writeLog("error", "Fault switch active on /grants");
         return res.status(500).json({
         error: "Fault Active.",
@@ -371,7 +384,7 @@ app.post("/grant-alerts", async (req, res) => {
 });
 
     app.post("/eligibility-checks", async (req, res) => {
-        if(String(FAULT) === "1"){
+        if(isFaultActive()){
         writeLog("error", "Fault switch active on /eligibility-checks");
         return res.status(500).json({
         error: "Fault Active.",

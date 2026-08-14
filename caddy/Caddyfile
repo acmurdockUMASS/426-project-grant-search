@@ -11,6 +11,7 @@
 
         fail_duration 10s
         max_fails 1
+        unhealthy_status 5xx
 
         header_down X-Served-By {upstream_hostport}
     }

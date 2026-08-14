@@ -3,7 +3,9 @@ import amqp from "amqplib";
 import promClient from "prom-client";
 
 const PORT = process.env.PORT || 3000;
-const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://rabbitmq:5672";
+const RABBITMQ_URL =
+  process.env.RABBITMQ_URL ||
+  "amqp://grantsearch:grantsearch-dev@rabbitmq:5672";
 const GRANT_ALERT_QUEUE = process.env.GRANT_ALERT_QUEUE || "grant-alert-jobs";
 const PROCESSING_DELAY_MS = process.env.PROCESSING_DELAY_MS || 250;
 
