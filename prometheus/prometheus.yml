@@ -2,6 +2,18 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
-  - job_name: "grant-search-1"
+  - job_name: "grant-search"
     static_configs:
-      - targets: ["grant-search-1:3000"]
+      - targets: ["grant-search-1:3000", "grant-search-2:3000"]
+
+  - job_name: "eligibility-ambassador"
+    static_configs:
+      - targets: ["eligibility-ambassador:3000"]
+
+  - job_name: "eligibility-service"
+    static_configs:
+      - targets: ["eligibility-service:3000"]
+
+  - job_name: "grant-alert-worker"
+    static_configs:
+      - targets: ["grant-alert-worker:3000"]

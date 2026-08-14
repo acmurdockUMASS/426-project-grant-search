@@ -1,31 +1,88 @@
-import express, { json } from "express";
+import express from "express";
 import crypto from "node:crypto";
 import amqp from "amqplib";
 import { createClient} from "redis";
-import client from "prom-client";
+import promClient from "prom-client";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const INSTANCE_ID = process.env.INSTANCE_ID || "grant-search";
 const ELIGIBILITY_AMBASSADOR_URL = process.env.ELIGIBILITY_AMBASSADOR_URL || "http://eligibility-ambassador:3000";
-const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://rabbitmq:5672";
+const RABBITMQ_URL =
+  process.env.RABBITMQ_URL ||
+  "amqp://grantsearch:grantsearch-dev@rabbitmq:5672";
 const GRANT_ALERT_QUEUE = process.env.GRANT_ALERT_QUEUE || "grant-alert-jobs";
 const FAULT = process.env.FAULT || 0;
 
-const httpRequestsTotal = new client.Counter({
+const metricsRegistry = new promClient.Registry();
+
+const httpRequestsTotal = new promClient.Counter({
   name: "http_requests_total",
   help: "Total number of HTTP requests received",
   labelNames: ["method", "route", "status_code"],
+  registers: [metricsRegistry],
 });
 
-const httpRequestDuration = new client.Histogram({
-  name: "http_request_duration_seconds",
-  help: "HTTP request duration in seconds",
+const httpRequestDuration = new promClient.Histogram({
+  name: "http_request_duration_milliseconds",
+  help: "HTTP request duration in milliseconds",
   labelNames: ["method", "route", "status_code"],
-  buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+  buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000],
+  registers: [metricsRegistry],
 });
 
 const app = express();
+
+function writeLog(level, message, details = {}) {
+  console.log(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      service: "grant-search-service",
+      instanceId: INSTANCE_ID,
+      ...details,
+    }),
+  );
+}
+
+app.use((req, res, next) => {
+  const startedAt = performance.now();
+
+  res.on("finish", () => {
+    const responseTimeMs = Number((performance.now() - startedAt).toFixed(2));
+    const route = req.route?.path || req.path;
+    const statusCode = String(res.statusCode);
+
+    httpRequestsTotal.inc({
+      method: req.method,
+      route,
+      status_code: statusCode,
+    });
+    httpRequestDuration.observe(
+      {
+        method: req.method,
+        route,
+        status_code: statusCode,
+      },
+      responseTimeMs,
+    );
+
+    writeLog(
+      res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info",
+      "HTTP request completed",
+      {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        responseTimeMs,
+      },
+    );
+  });
+
+  next();
+});
+
 app.use(express.json());
 
 const grants = [
@@ -58,8 +115,13 @@ description: "Grant Opportunities to help clean up areas underneath the Northeas
 const delay = (ms) => new Promise((resolve)=>setTimeout(resolve,ms));
 
 
-const client = createClient({ url: process.env.REDIS_URL});
-await client.connect();
+const redisClient = createClient({ url: process.env.REDIS_URL});
+redisClient.on("error", (error) => {
+  writeLog("error", "Redis client error", {
+    error: error.message,
+  });
+});
+await redisClient.connect();
 
 
 let rabbitConnection;
@@ -68,15 +130,12 @@ let rabbitConnectInProgress = false;
 let rabbitReconnectTimer;
 
 
-function writeProducerLog(event, details = {}) {
-    console.log(JSON.stringify({
-        timestamp: new Date().toISOString(),
-        component: "producer",
-        instanceId: INSTANCE_ID,
-        event,
-        ... details,
-    }),
-    );
+function writeProducerLog(event, details = {}, level = "info") {
+    writeLog(level, `RabbitMQ producer ${event.replaceAll("_", " ")}`, {
+      component: "producer",
+      event,
+      ...details,
+    });
 }
 
 
@@ -112,7 +171,7 @@ async function connectToRabbitMQ(){
     connection.on("error", (error) => {
       writeProducerLog("rabbitmq_error", {
         message: error.message,
-      });
+      }, "error");
     });
 
     connection.on("close", () => {
@@ -120,7 +179,7 @@ async function connectToRabbitMQ(){
         rabbitConnection = undefined;
         rabbitChannel = undefined;
 
-        writeProducerLog("rabbitmq_disconnected");
+        writeProducerLog("rabbitmq_disconnected", {}, "warn");
         scheduleRabbitReconnect();
       }
     });
@@ -131,7 +190,7 @@ async function connectToRabbitMQ(){
   } catch (error) {
     writeProducerLog("rabbitmq_connection_failed", {
       message: error.message,
-    });
+    }, "error");
 
     if (connection) {
       await connection.close().catch(() => {});
@@ -185,6 +244,10 @@ function queryValueAsArray(value) {
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
+
+function isFaultActive() {
+  return String(FAULT) === "1";
+}
 // Query Helper To Check for Query Parameters and ensure variables are arrays
 const qHelper = (qIn) => {
     if(!qIn){return []} // No input is an empty array
@@ -198,8 +261,10 @@ const qHelper = (qIn) => {
 }
 //GET /health
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
+  const faultActive = isFaultActive();
+
+  res.status(faultActive ? 503 : 200).json({
+    status: faultActive ? "fault" : "ok",
     service: "grant-search-service",
     instanceId: INSTANCE_ID,
     rabbitmq: rabbitChannel ? "connected" : "connecting",
@@ -208,8 +273,8 @@ app.get("/health", (req, res) => {
 });
 // GET /grants
 app.get("/grants", async (req, res) => {
-    if(FAULT == 1){
-        console.error("Fault on /grants", error);
+    if(isFaultActive()){
+        writeLog("error", "Fault switch active on /grants");
         return res.status(500).json({
         error: "Fault Active.",
         });
@@ -231,14 +296,14 @@ app.get("/grants", async (req, res) => {
         oQRG: orgQueryRegion, oQR: orgQueryReq, oQI: orgQueryInterests    
     });
 
-    const value = await client.get(key);
+    const value = await redisClient.get(key);
     if(value != null){
         res.setHeader('X-Cache', 'HIT');
-        console.log("Cache Hit");
+        writeLog("info", "Grant search cache hit");
         return res.json(JSON.parse(value));
     }else{
         res.setHeader('X-Cache', 'MISS');
-        console.log("Cache Miss");
+        writeLog("info", "Grant search cache miss");
         //Cache Miss Fetch Data
         await delay (450);
         const matches = grants.filter((grant) => {
@@ -255,7 +320,7 @@ app.get("/grants", async (req, res) => {
         });
 
         //Add to cache
-        await client.set(key, JSON.stringify({ count: matches.length, source: "cache", matches: matches }), {EX: 3600} );
+        await redisClient.set(key, JSON.stringify({ count: matches.length, source: "cache", matches: matches }), {EX: 3600} );
 
         return res.json({ count: matches.length, source: "database", matches: matches });
     }
@@ -308,7 +373,7 @@ app.post("/grant-alerts", async (req, res) => {
     writeProducerLog("enqueue_failed", {
       jobId: job.jobId,
       message: error.message,
-    });
+    }, "error");
 
     return res.status(503).json({
       error: "Grant alert queue unavailable",
@@ -319,8 +384,8 @@ app.post("/grant-alerts", async (req, res) => {
 });
 
     app.post("/eligibility-checks", async (req, res) => {
-        if(FAULT == 1){
-        console.error("Fault on /eligibility-checks", error);
+        if(isFaultActive()){
+        writeLog("error", "Fault switch active on /eligibility-checks");
         return res.status(500).json({
         error: "Fault Active.",
         });
@@ -353,7 +418,9 @@ app.post("/grant-alerts", async (req, res) => {
 
     return res.send(upstreamBody);
   } catch (error) {
-    console.error("Cannot reach Eligibility Ambassador", error);
+    writeLog("error", "Cannot reach Eligibility Ambassador", {
+      error: error.message,
+    });
 
     return res.status(502).json({
       error: "Eligibility Ambassador unavailable",
@@ -362,8 +429,10 @@ app.post("/grant-alerts", async (req, res) => {
 });
 
 app.get("/metrics", async (req, res) => {
-  res.set("Content-Type", client.register.contentType);
-  res.end(await client.register.metrics());
+  res.set("Content-Type", metricsRegistry.contentType);
+  res.end(await metricsRegistry.metrics());
 });
 
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => {
+  writeLog("info", "Grant Search Service started", { port: Number(PORT) });
+});

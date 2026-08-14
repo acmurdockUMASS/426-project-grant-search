@@ -1,11 +1,78 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
+import promClient from "prom-client";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const MIN_LATENCY_MS = process.env.MIN_LATENCY_MS || 350;
 const MAX_LATENCY_MS = process.env.MAX_LATENCY_MS || 900;
+
+const metricsRegistry = new promClient.Registry();
+
+const httpRequestsTotal = new promClient.Counter({
+  name: "http_requests_total",
+  help: "Total number of HTTP requests received",
+  labelNames: ["method", "route", "status_code"],
+  registers: [metricsRegistry],
+});
+
+const httpRequestDuration = new promClient.Histogram({
+  name: "http_request_duration_milliseconds",
+  help: "HTTP request duration in milliseconds",
+  labelNames: ["method", "route", "status_code"],
+  buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000],
+  registers: [metricsRegistry],
+});
+
+function writeLog(level, message, details = {}) {
+  console.log(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      service: "eligibility-analysis-service",
+      ...details,
+    }),
+  );
+}
+
+app.use((req, res, next) => {
+  const startedAt = performance.now();
+
+  res.on("finish", () => {
+    const responseTimeMs = Number((performance.now() - startedAt).toFixed(2));
+    const route = req.route?.path || req.path;
+    const statusCode = String(res.statusCode);
+
+    httpRequestsTotal.inc({
+      method: req.method,
+      route,
+      status_code: statusCode,
+    });
+    httpRequestDuration.observe(
+      {
+        method: req.method,
+        route,
+        status_code: statusCode,
+      },
+      responseTimeMs,
+    );
+
+    writeLog(
+      res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info",
+      "HTTP request completed",
+      {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        responseTimeMs,
+      },
+    );
+  });
+
+  next();
+});
 
 app.use(express.json());
 
@@ -150,10 +217,18 @@ app.post("/eligibility-checks", async (request, response) => {
       ? "the organization appears eligible based on simulated requirements"
       : "The organization did not pass every requirement",
   };
-  console.log(`${result.eligibilityCheckId} in ${simulatedLatencyMs} ms`);
+  writeLog("info", "Eligibility check completed", {
+    eligibilityCheckId: result.eligibilityCheckId,
+    simulatedLatencyMs,
+  });
   response
     .set("x-simulated-latency-ms", String(simulatedLatencyMs))
     .json(result);
+});
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", metricsRegistry.contentType);
+  res.end(await metricsRegistry.metrics());
 });
 
 app.use((req, res) => {
@@ -164,5 +239,7 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`eligibility service is listening on port ${PORT}`);
+  writeLog("info", "Eligibility Analysis Service started", {
+    port: Number(PORT),
+  });
 });

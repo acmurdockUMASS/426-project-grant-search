@@ -8,6 +8,11 @@ services:
       retries: 5
   rabbitmq:
     image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: grantsearch
+      RABBITMQ_DEFAULT_PASS: grantsearch-dev
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
@@ -17,7 +22,13 @@ services:
   eligibility-service:
     build: ./eligibility-service
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -29,7 +40,13 @@ services:
   eligibility-ambassador:
     build: ./eligibility-ambassador
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -46,7 +63,13 @@ services:
   grant-search-1:
     build: ./grant-search-service
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -57,9 +80,9 @@ services:
       REDIS_URL: redis://redis:6379
       CACHE_TTL_SECONDS: 60
       ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
-      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_URL: amqp://grantsearch:grantsearch-dev@rabbitmq:5672
       GRANT_ALERT_QUEUE: grant-alert-jobs
-      FAULT: 0
+      FAULT: ${GRANT_SEARCH_1_FAULT:-0}
     volumes:
       - grant-data:/data
     depends_on: 
@@ -72,7 +95,13 @@ services:
   grant-search-2:
     build: ./grant-search-service
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -83,9 +112,9 @@ services:
       REDIS_URL: redis://redis:6379
       CACHE_TTL_SECONDS: 60
       ELIGIBILITY_AMBASSADOR_URL: http://eligibility-ambassador:3000
-      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_URL: amqp://grantsearch:grantsearch-dev@rabbitmq:5672
       GRANT_ALERT_QUEUE: grant-alert-jobs
-      FAULT: 0
+      FAULT: ${GRANT_SEARCH_2_FAULT:-0}
     volumes:
       - grant-data:/data
     depends_on: 
@@ -101,7 +130,7 @@ services:
       - "3003:3000"
     environment:
       PORT: 3000
-      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_URL: amqp://grantsearch:grantsearch-dev@rabbitmq:5672
       GRANT_ALERT_QUEUE: grant-alert-jobs
       PROCESSING_DELAY_MS: 250
     depends_on:
@@ -120,16 +149,24 @@ services:
       retries: 10
       start_period: 5s
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus:latest
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml   
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3004:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
-      grant-search-1:
-        condition: service_healthy
-      grant-search 2:
-        condition: service_healthy
+      prometheus:
+        condition: service_started
   caddy: 
     image: caddy:2-alpine
     ports: 
@@ -144,3 +181,4 @@ services:
 
 volumes:
   grant-data:
+  rabbitmq-data:
