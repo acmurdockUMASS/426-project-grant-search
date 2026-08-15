@@ -104,3 +104,8 @@ Used prompt to write the below since there isn't a good way to export chat histo
 - Ran `git diff --check` and confirmed that no whitespace errors were reported.
 
 Codex left the repaired Docker stack running locally. Codex did not run `git add`, create a commit, or push to GitHub. At the time this disclosure was written, seven earlier repair files appeared staged in Git from another action, while `AI-DISCLOSURE.md` was still untracked. The branch remained at commit `d7edefc` and was not ahead of `origin/s5-murdock`.
+
+
+student: "Write a comprehensive read-me.md following these criteria (user provided pasted context) leave all the content from the initial read-me so it won't be lost" 
+
+Codex: pasted README.md
