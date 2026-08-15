@@ -22,7 +22,7 @@
 
 - Manages applications, checklists, required documents, completion percent, and application status changes. <br>
 
-## Diagram: Likely Subject To Significant Changes Moving Forward
+## Diagram:
 ```mermaid
 graph TD;
 A[Client] --> B[Caddy Load Balancer] 
@@ -38,4 +38,10 @@ C --> H[Eligibility Ambassador]
 D --> H
 H --> I[Eligibility Service]
 J --> K[Grant Alert Worker]
+H --> L[Prometheus]
+I --> L
+J --> L
+C --> L
+D --> L
+L --> M[Grafana]
 ```
